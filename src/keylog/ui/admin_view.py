@@ -4,6 +4,7 @@ from __future__ import annotations
 import calendar
 import os
 from datetime import date, datetime
+from tkinter import filedialog
 
 import customtkinter as ctk
 
@@ -343,7 +344,20 @@ class AdminView(ctk.CTkFrame):
             return
         start = start_d.strftime("%Y-%m-%d")
         end = end_d.strftime("%Y-%m-%d") + " 23:59:59"  # 終了日は当日いっぱいを含める
-        out = config.EXPORTS_DIR / f"key_report_{kid}_{_stamp()}.pdf"
+
+        key = models.get_key(self.conn, kid)
+        default_name = f"key_report_{key['code']}_{_stamp()}.pdf"
+        config.ensure_dirs()
+        out = filedialog.asksaveasfilename(
+            parent=self,
+            title="PDF の保存先を選択",
+            defaultextension=".pdf",
+            filetypes=[("PDF ファイル", "*.pdf")],
+            initialdir=str(config.EXPORTS_DIR),
+            initialfile=default_name,
+        )
+        if not out:  # キャンセル
+            return
         try:
             path = reports.key_usage_pdf(self.conn, kid, out, start, end)
         except Exception as e:
@@ -352,7 +366,17 @@ class AdminView(ctk.CTkFrame):
         self._offer_open(path)
 
     def _export_csv(self) -> None:
-        out = config.EXPORTS_DIR / f"checkouts_{_stamp()}.csv"
+        config.ensure_dirs()
+        out = filedialog.asksaveasfilename(
+            parent=self,
+            title="CSV の保存先を選択",
+            defaultextension=".csv",
+            filetypes=[("CSV ファイル", "*.csv")],
+            initialdir=str(config.EXPORTS_DIR),
+            initialfile=f"checkouts_{_stamp()}.csv",
+        )
+        if not out:  # キャンセル
+            return
         try:
             path = reports.checkouts_csv(self.conn, out)
         except Exception as e:
