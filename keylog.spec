@@ -35,6 +35,7 @@ exe = EXE(
     a.datas,
     [],
     name="Keylog",
+    icon="assets/Keylog.ico",
     debug=False,
     strip=False,
     upx=False,
