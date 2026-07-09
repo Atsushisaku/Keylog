@@ -3,8 +3,7 @@
 
 # データ・出力（実データはリポジトリに入れない）
 data/*.db
-data/*.db-journal
-data/*.db-wal
+data/*.db-*
 exports/
 
 # Python
