@@ -19,6 +19,7 @@ package = false
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pyinstaller>=6.0",
 ]
 
 [tool.pytest.ini_options]

@@ -1,11 +1,18 @@
 """パス・定数の一元管理。"""
 from __future__ import annotations
 
+import sys
 from datetime import datetime
 from pathlib import Path
 
-# プロジェクトルート = このファイルから見て src/keylog/../../
-BASE_DIR = Path(__file__).resolve().parents[2]
+# ベースディレクトリ:
+# - PyInstaller で凍結(exe)時は exe と同じフォルダ(データが永続化される場所)
+# - 通常実行時は src/keylog/../../（プロジェクトルート）
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent
+else:
+    BASE_DIR = Path(__file__).resolve().parents[2]
+
 DATA_DIR = BASE_DIR / "data"
 EXPORTS_DIR = BASE_DIR / "exports"
 DB_PATH = DATA_DIR / "keylog.db"
@@ -13,8 +20,9 @@ DB_PATH = DATA_DIR / "keylog.db"
 # エクスポート(PDF/CSV)の既定保存先はユーザーのダウンロードフォルダ
 DOWNLOADS_DIR = Path.home() / "Downloads"
 
-# UI フォント(日本語グリフを正しく表示するため Noto Sans JP)
-UI_FONT_FAMILY = "Noto Sans JP"
+# UI フォント候補。先頭から順に「インストール済みの最初のもの」を使う。
+# Noto Sans JP が無い配布先でも Windows 標準の日本語フォントで正しく表示するため。
+UI_FONT_CANDIDATES = ["Noto Sans JP", "Yu Gothic UI", "Meiryo", "MS Gothic"]
 
 # 初回起動時に投入する管理者 PIN の初期値。
 # DB にはソルト付きハッシュで保存されるため、平文が残るのはこの初回投入時のみ。

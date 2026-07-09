@@ -10,6 +10,10 @@ exports/
 __pycache__/
 *.pyc
 
+# PyInstaller ビルド成果物
+build/
+dist/
+
 # OS / エディタ
 Thumbs.db
 .DS_Store

@@ -10,8 +10,8 @@ import tkinter.font as tkfont
 
 import customtkinter as ctk
 
-from .. import services
-from ..config import UI_FONT_FAMILY, UI_QUEUE_DRAIN_MS
+from .. import config, services
+from ..config import UI_QUEUE_DRAIN_MS
 from ..reader import CardReader
 from . import dialogs
 from .admin_view import AdminView
@@ -52,15 +52,21 @@ class KeylogApp(ctk.CTk):
 
     # ------------------------------------------------------------ フォント
     def _apply_font_family(self) -> None:
-        """アプリ全体のフォントを Noto Sans JP に統一する(未導入なら既定のまま)。"""
-        if UI_FONT_FAMILY not in tkfont.families():
+        """日本語が正しく出るフォントに統一する。
+
+        候補(config.UI_FONT_CANDIDATES)の先頭から、導入済みの最初のものを採用。
+        配布先に Noto Sans JP が無くても Windows 標準の日本語フォントで表示できる。
+        """
+        available = set(tkfont.families())
+        family = next((f for f in config.UI_FONT_CANDIDATES if f in available), None)
+        if family is None:
             return
         # CTk ウィジェットの既定 family
-        ctk.ThemeManager.theme["CTkFont"]["family"] = UI_FONT_FAMILY
+        ctk.ThemeManager.theme["CTkFont"]["family"] = family
         # tk/ttk(messagebox・tkcalendar)用の名前付きフォント
         for fname in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
             try:
-                tkfont.nametofont(fname).configure(family=UI_FONT_FAMILY)
+                tkfont.nametofont(fname).configure(family=family)
             except Exception:
                 pass
 
