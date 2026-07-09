@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import calendar
+import json
 import os
 import shutil
 import tempfile
@@ -14,6 +15,7 @@ import customtkinter as ctk
 from .. import config, models, reports, services
 from . import dialogs
 from .datepicker import DatePicker
+from .inspection import InspectionDialog
 
 
 def _stamp() -> str:
@@ -269,30 +271,25 @@ class AdminView(ctk.CTkFrame):
             w.destroy()
         for r in models.list_inspections(self.conn):
             res = "問題あり" if r["result"] == "issue" else "問題なし"
+            try:
+                cl = json.loads(r["checklist"] or "[]")
+            except (TypeError, ValueError):
+                cl = []
+            stock = [i for i in cl if i.get("in_stock")]
+            confirmed = [i for i in stock if i.get("confirmed")]
+            ret = "全返却" if r["all_returned"] else "未返却あり"
             note = f"／{r['note']}" if r["note"] else ""
             ctk.CTkLabel(
                 self.insp_list,
-                text=f"{r['inspected_at']}  {r['inspector']}  [{res}]{note}",
+                text=(
+                    f"{r['inspected_at']}  {r['inspector']}  [{res}]  "
+                    f"現物確認 {len(confirmed)}/{len(stock)}  {ret}{note}"
+                ),
                 anchor="w",
             ).pack(fill="x", padx=8, pady=2)
 
     def _do_inspection(self) -> None:
-        open_rows = models.list_open_checkouts(self.conn)
-        listing = "\n".join(f"・{r['key_code']} {r['key_name']}（{r['user_name']}）" for r in open_rows) or "（なし）"
-        dialogs.info(self, f"現在貸出中（手元に無いはずの鍵）:\n{listing}", title="点検の参考")
-        inspector = dialogs.ask_text(self, "点検の実施", "点検者名を入力してください")
-        if not inspector:
-            return
-        issue = dialogs.confirm(self, "点検で問題は見つかりましたか？（はい=問題あり / いいえ=問題なし）", title="点検結果")
-        note = dialogs.ask_text(self, "点検の実施", "所見・特記事項（任意）")
-        try:
-            services.record_inspection(
-                self.conn, inspector, "issue" if issue else "ok", note or None
-            )
-        except services.KeylogError as e:
-            dialogs.error(self, str(e))
-            return
-        self._refresh_inspections()
+        InspectionDialog(self, self.conn, on_done=self._refresh_inspections)
 
     # ============================================================ レポート
     def _build_reports(self, tab) -> None:

@@ -200,29 +200,62 @@ def verify_admin_pin(conn: sqlite3.Connection, pin: str) -> bool:
 # ---------------------------------------------------------------- 点検
 
 
+def build_inspection_checklist(conn: sqlite3.Connection) -> list[dict]:
+    """点検用チェックリストを組み立てる。
+
+    有効な鍵ごとに、在庫中か(貸出中でないか)・借用者を返す。
+    貸出中の鍵は現物がその場に無いため「確認対象外」となる。
+    """
+    open_by_key = {r["key_id"]: r["user_name"] for r in models.list_open_checkouts(conn)}
+    items = []
+    for k in models.list_keys(conn):  # active のみ
+        holder = open_by_key.get(k["key_id"])
+        items.append(
+            {
+                "key_id": k["key_id"],
+                "code": k["code"],
+                "name": k["name"],
+                "in_stock": holder is None,  # True=在庫(現物確認可)
+                "holder": holder,            # 貸出中なら借用者名
+            }
+        )
+    return items
+
+
 def record_inspection(
-    conn: sqlite3.Connection, inspector: str, result: str, note: str | None = None
+    conn: sqlite3.Connection,
+    inspector: str,
+    confirmed_key_ids,
+    note: str | None = None,
 ) -> int:
-    """点検を記録する。点検時点の貸出中一覧をスナップショット保存する。"""
+    """点検を記録する。
+
+    - 現物確認したのは confirmed_key_ids(在庫中の鍵のうちチェックされたもの)。
+    - all_returned: 点検時に全鍵が返却済みだったか。
+    - result: 全返却済み かつ 在庫鍵をすべて現物確認 なら 'ok'、それ以外 'issue'。
+    チェックリスト全体を JSON で保存する。
+    """
     inspector = (inspector or "").strip()
     if not inspector:
         raise KeylogError("点検者名を入力してください。")
-    if result not in ("ok", "issue"):
-        raise KeylogError("点検結果が不正です。")
-    open_rows = models.list_open_checkouts(conn)
-    snapshot = json.dumps(
-        [
-            {
-                "key_code": r["key_code"],
-                "key_name": r["key_name"],
-                "user_name": r["user_name"],
-                "checked_out_at": r["checked_out_at"],
-            }
-            for r in open_rows
-        ],
-        ensure_ascii=False,
+
+    confirmed = set(confirmed_key_ids or [])
+    items = build_inspection_checklist(conn)
+
+    all_returned = all(it["in_stock"] for it in items)
+    all_confirmed = True
+    checklist = []
+    for it in items:
+        is_confirmed = it["in_stock"] and it["key_id"] in confirmed
+        if it["in_stock"] and not is_confirmed:
+            all_confirmed = False
+        checklist.append({**it, "confirmed": is_confirmed})
+
+    result = "ok" if (all_returned and all_confirmed) else "issue"
+    checklist_json = json.dumps(checklist, ensure_ascii=False)
+    return models.create_inspection(
+        conn, inspector, result, note, checklist_json, all_returned
     )
-    return models.create_inspection(conn, inspector, result, note, snapshot)
 
 
 # ---------------------------------------------------------------- バックアップ

@@ -49,43 +49,76 @@ def test_set_empty_pin_raises(conn):
         services.set_admin_pin(conn, "")
 
 
-# --- ルール9: 点検記録 record_inspection ---------------------------------
+# --- ルール9: 点検記録(チェックリスト式) --------------------------------
 
 
-def test_record_inspection_snapshots_open_checkouts(conn):
+def test_checklist_reflects_stock_and_out(conn):
     uid = models.create_user(conn, "借主", "IDM-I")
-    kid = models.create_key(conn, "K-INSP", "点検対象鍵")
-    services.checkout_key(conn, uid, kid)
+    k1 = models.create_key(conn, "K-1", "在庫鍵")
+    k2 = models.create_key(conn, "K-2", "貸出鍵")
+    services.checkout_key(conn, uid, k2)
 
-    insp_id = services.record_inspection(conn, "点検者A", "ok", note="定例")
+    items = services.build_inspection_checklist(conn)
+    by_id = {i["key_id"]: i for i in items}
+    assert by_id[k1]["in_stock"] is True and by_id[k1]["holder"] is None
+    assert by_id[k2]["in_stock"] is False and by_id[k2]["holder"] == "借主"
 
-    rows = models.list_inspections(conn)
-    assert len(rows) == 1
-    row = rows[0]
+
+def test_inspection_ok_when_all_returned_and_confirmed(conn):
+    k1 = models.create_key(conn, "K-1", "鍵1")
+    k2 = models.create_key(conn, "K-2", "鍵2")
+
+    insp_id = services.record_inspection(conn, "点検者A", [k1, k2], note="定例")
+    row = models.list_inspections(conn)[0]
     assert row["inspection_id"] == insp_id
     assert row["inspector"] == "点検者A"
     assert row["result"] == "ok"
-
-    snapshot = json.loads(row["open_snapshot"])
-    assert len(snapshot) == 1
-    assert snapshot[0]["key_code"] == "K-INSP"
-    assert snapshot[0]["user_name"] == "借主"
+    assert row["all_returned"] == 1
+    cl = json.loads(row["checklist"])
+    assert all(i["confirmed"] for i in cl)
 
 
-def test_record_inspection_invalid_result_raises(conn):
-    with pytest.raises(services.KeylogError):
-        services.record_inspection(conn, "点検者", "bogus")
+def test_inspection_issue_when_stock_key_unconfirmed(conn):
+    k1 = models.create_key(conn, "K-1", "鍵1")
+    models.create_key(conn, "K-2", "鍵2")  # 未確認のまま
+
+    services.record_inspection(conn, "点検者", [k1])
+    row = models.list_inspections(conn)[0]
+    assert row["result"] == "issue"
+    assert row["all_returned"] == 1
+
+
+def test_inspection_issue_when_key_out(conn):
+    uid = models.create_user(conn, "借主", "IDM-I")
+    k1 = models.create_key(conn, "K-1", "在庫鍵")
+    k2 = models.create_key(conn, "K-2", "貸出鍵")
+    services.checkout_key(conn, uid, k2)
+
+    # 在庫鍵は確認、貸出鍵は現物なしなので確認不可
+    services.record_inspection(conn, "点検者", [k1])
+    row = models.list_inspections(conn)[0]
+    assert row["result"] == "issue"
+    assert row["all_returned"] == 0
+    cl = {i["key_id"]: i for i in json.loads(row["checklist"])}
+    assert cl[k1]["confirmed"] is True
+    assert cl[k2]["confirmed"] is False and cl[k2]["in_stock"] is False
+
+
+def test_inspection_out_key_cannot_be_confirmed(conn):
+    """貸出中の鍵IDを confirmed に渡しても確認済みにはならない。"""
+    uid = models.create_user(conn, "借主", "IDM-I")
+    k2 = models.create_key(conn, "K-2", "貸出鍵")
+    services.checkout_key(conn, uid, k2)
+
+    services.record_inspection(conn, "点検者", [k2])  # 不正に渡す
+    row = models.list_inspections(conn)[0]
+    cl = {i["key_id"]: i for i in json.loads(row["checklist"])}
+    assert cl[k2]["confirmed"] is False
 
 
 def test_record_inspection_blank_inspector_raises(conn):
     with pytest.raises(services.KeylogError):
-        services.record_inspection(conn, "  ", "ok")
-
-
-def test_record_inspection_empty_snapshot(conn):
-    services.record_inspection(conn, "点検者", "issue", note="貸出なし")
-    row = models.list_inspections(conn)[0]
-    assert json.loads(row["open_snapshot"]) == []
+        services.record_inspection(conn, "  ", [])
 
 
 # --- ルール10: バックアップ backup_db ------------------------------------

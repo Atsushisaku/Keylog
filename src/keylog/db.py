@@ -46,7 +46,9 @@ CREATE TABLE IF NOT EXISTS inspections (
     inspector     TEXT    NOT NULL,
     result        TEXT    NOT NULL,
     note          TEXT,
-    open_snapshot TEXT
+    open_snapshot TEXT,
+    checklist     TEXT,              -- 現物確認チェックリスト(JSON)
+    all_returned  INTEGER            -- 点検時に全鍵が返却済みだったか(1/0)
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -67,10 +69,21 @@ def connect(db_path: Path | str = config.DB_PATH) -> sqlite3.Connection:
     return conn
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """既存 DB へのカラム追加など軽量マイグレーション(冪等)。"""
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(inspections)")}
+    if "checklist" not in cols:
+        conn.execute("ALTER TABLE inspections ADD COLUMN checklist TEXT")
+    if "all_returned" not in cols:
+        conn.execute("ALTER TABLE inspections ADD COLUMN all_returned INTEGER")
+    conn.commit()
+
+
 def init_schema(conn: sqlite3.Connection) -> None:
     """テーブル・インデックスを作成する(冪等)。"""
     conn.executescript(SCHEMA_SQL)
     conn.commit()
+    _migrate(conn)
 
 
 def initialize(db_path: Path | str = config.DB_PATH) -> sqlite3.Connection:

@@ -222,14 +222,16 @@ def create_inspection(
     inspector: str,
     result: str,
     note: str | None,
-    open_snapshot: str | None,
+    checklist: str | None,
+    all_returned: bool,
 ) -> int:
     cur = conn.execute(
         """
-        INSERT INTO inspections (inspected_at, inspector, result, note, open_snapshot)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO inspections
+            (inspected_at, inspector, result, note, checklist, all_returned)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (now_iso(), inspector, result, note, open_snapshot),
+        (now_iso(), inspector, result, note, checklist, 1 if all_returned else 0),
     )
     conn.commit()
     return int(cur.lastrowid)
