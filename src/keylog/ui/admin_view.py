@@ -4,7 +4,6 @@ from __future__ import annotations
 import calendar
 import json
 import os
-import shutil
 import tempfile
 from datetime import date, datetime
 from pathlib import Path
@@ -346,39 +345,19 @@ class AdminView(ctk.CTkFrame):
         end = end_d.strftime("%Y-%m-%d") + " 23:59:59"  # 終了日は当日いっぱいを含める
 
         key = models.get_key(self.conn, kid)
-        default_name = f"key_report_{key['code']}_{_stamp()}.pdf"
-
-        # 1) 一時ファイルに生成し、既定ビューアでプレビュー表示
-        tmp = Path(tempfile.gettempdir()) / f"keylog_preview_{_stamp()}.pdf"
+        # 分かりやすいファイル名で一時フォルダに生成し、既定ビューア(ブラウザ)で開く。
+        # 保存・印刷はビューア側で行う想定(アプリ側の保存ダイアログは持たない)。
+        safe_code = "".join(c if c.isalnum() or c in "-_" else "_" for c in key["code"])
+        out = Path(tempfile.gettempdir()) / f"key_report_{safe_code}_{_stamp()}.pdf"
         try:
-            reports.key_usage_pdf(self.conn, kid, tmp, start, end)
+            reports.key_usage_pdf(self.conn, kid, out, start, end)
         except Exception as e:
             dialogs.error(self, f"PDF 生成に失敗: {e}")
             return
         try:
-            os.startfile(str(tmp))  # noqa: S606 (Windows プレビュー)
-        except Exception:
-            pass
-
-        # 2) プレビュー確認後に保存(既定はダウンロードフォルダ)
-        if not dialogs.confirm(self, "プレビューを表示しました。この内容で保存しますか？", title="PDF の保存"):
-            return
-        dest = filedialog.asksaveasfilename(
-            parent=self,
-            title="PDF の保存先",
-            defaultextension=".pdf",
-            filetypes=[("PDF ファイル", "*.pdf")],
-            initialdir=self._default_export_dir(),
-            initialfile=default_name,
-        )
-        if not dest:  # キャンセル
-            return
-        try:
-            shutil.copyfile(tmp, dest)
+            os.startfile(str(out))  # noqa: S606 (Windows: 既定ビューアで開く)
         except Exception as e:
-            dialogs.error(self, f"保存に失敗: {e}")
-            return
-        dialogs.info(self, f"保存しました:\n{dest}")
+            dialogs.error(self, f"PDF を開けませんでした: {e}\n生成先: {out}")
 
     def _export_csv(self) -> None:
         out = filedialog.asksaveasfilename(
