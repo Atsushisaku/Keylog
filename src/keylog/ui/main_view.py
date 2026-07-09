@@ -23,16 +23,17 @@ class MainView(ctk.CTkFrame):
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=20, pady=(18, 6))
 
-        # fg_color を背後のフレーム色に合わせ、トラック枠(下端の線)を溶かす
+        # 貸出/返却はトグル(セグメント)。高さは管理メニューと揃える。
+        btn_h = 34
         self.mode_switch = ctk.CTkSegmentedButton(
             header, values=["貸出", "返却"], command=self._on_mode_change,
-            fg_color=self.cget("fg_color"),
+            height=btn_h,
         )
         self.mode_switch.set("貸出")
         self.mode_switch.pack(side="left")
 
         ctk.CTkButton(
-            header, text="管理メニュー", width=120, fg_color="gray40",
+            header, text="管理メニュー", width=120, height=btn_h, fg_color="gray40",
             command=self.app.open_admin,
         ).pack(side="right")
 
