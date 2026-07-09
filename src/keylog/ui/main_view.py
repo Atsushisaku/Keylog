@@ -23,8 +23,10 @@ class MainView(ctk.CTkFrame):
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=20, pady=(18, 6))
 
+        # fg_color を背後のフレーム色に合わせ、トラック枠(下端の線)を溶かす
         self.mode_switch = ctk.CTkSegmentedButton(
-            header, values=["貸出", "返却"], command=self._on_mode_change
+            header, values=["貸出", "返却"], command=self._on_mode_change,
+            fg_color=self.cget("fg_color"),
         )
         self.mode_switch.set("貸出")
         self.mode_switch.pack(side="left")
@@ -42,7 +44,7 @@ class MainView(ctk.CTkFrame):
         self.hint = ctk.CTkLabel(self, text="", text_color="gray60")
         self.hint.pack(padx=20, pady=(0, 8))
 
-        self.list_frame = ctk.CTkScrollableFrame(self, label_text="")
+        self.list_frame = ctk.CTkScrollableFrame(self)
         self.list_frame.pack(fill="both", expand=True, padx=20, pady=(4, 8))
 
         self.toast = ctk.CTkLabel(self, text="", text_color="#2e7d32")
@@ -99,15 +101,17 @@ class MainView(ctk.CTkFrame):
             )
 
     def _key_row(self, code: str, name: str, command, subtitle: str = "") -> None:
-        row = ctk.CTkFrame(self.list_frame)
-        row.pack(fill="x", padx=4, pady=3)
         text = f"{code}　{name}"
         if subtitle:
             text += f"\n{subtitle}"
+        # 青塗りをやめ、枠線のみ・ホバーで淡く反応する中立的な行にする
         ctk.CTkButton(
-            row, text=text, anchor="w", height=44,
-            command=command,
-        ).pack(fill="x", padx=4, pady=4)
+            self.list_frame, text=text, anchor="w", height=44, command=command,
+            fg_color="transparent",
+            text_color=("gray10", "gray90"),
+            hover_color=("gray85", "gray25"),
+            border_width=1, border_color=("gray70", "gray35"),
+        ).pack(fill="x", padx=4, pady=3)
 
     # ------------------------------------------------------------ カード受信
     def on_card(self, idm: str) -> None:

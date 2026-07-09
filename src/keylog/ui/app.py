@@ -6,11 +6,12 @@ SPEC §7.1: リーダーはワーカースレッドで Queue に IDm を流す�
 from __future__ import annotations
 
 import sqlite3
+import tkinter.font as tkfont
 
 import customtkinter as ctk
 
 from .. import services
-from ..config import UI_QUEUE_DRAIN_MS
+from ..config import UI_FONT_FAMILY, UI_QUEUE_DRAIN_MS
 from ..reader import CardReader
 from . import dialogs
 from .admin_view import AdminView
@@ -29,6 +30,8 @@ class KeylogApp(ctk.CTk):
 
         ctk.set_appearance_mode("system")
         ctk.set_default_color_theme("blue")
+        # テーマ読込(family を Roboto に戻す)後にフォントを上書きする
+        self._apply_font_family()
 
         self._card_capture = None  # 一時的に次のカードを横取りするコールバック
         self._reader_error_shown = False
@@ -46,6 +49,20 @@ class KeylogApp(ctk.CTk):
         self.after(UI_QUEUE_DRAIN_MS, self._drain_reader)
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    # ------------------------------------------------------------ フォント
+    def _apply_font_family(self) -> None:
+        """アプリ全体のフォントを Noto Sans JP に統一する(未導入なら既定のまま)。"""
+        if UI_FONT_FAMILY not in tkfont.families():
+            return
+        # CTk ウィジェットの既定 family
+        ctk.ThemeManager.theme["CTkFont"]["family"] = UI_FONT_FAMILY
+        # tk/ttk(messagebox・tkcalendar)用の名前付きフォント
+        for fname in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
+            try:
+                tkfont.nametofont(fname).configure(family=UI_FONT_FAMILY)
+            except Exception:
+                pass
 
     # ------------------------------------------------------------ 画面遷移
     def _show(self, view) -> None:

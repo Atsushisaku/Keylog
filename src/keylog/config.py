@@ -10,6 +10,12 @@ DATA_DIR = BASE_DIR / "data"
 EXPORTS_DIR = BASE_DIR / "exports"
 DB_PATH = DATA_DIR / "keylog.db"
 
+# エクスポート(PDF/CSV)の既定保存先はユーザーのダウンロードフォルダ
+DOWNLOADS_DIR = Path.home() / "Downloads"
+
+# UI フォント(日本語グリフを正しく表示するため Noto Sans JP)
+UI_FONT_FAMILY = "Noto Sans JP"
+
 # 初回起動時に投入する管理者 PIN の初期値。
 # DB にはソルト付きハッシュで保存されるため、平文が残るのはこの初回投入時のみ。
 INITIAL_ADMIN_PIN = "pass"

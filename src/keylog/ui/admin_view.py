@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import calendar
 import os
+import shutil
+import tempfile
 from datetime import date, datetime
+from pathlib import Path
 from tkinter import filedialog
 
 import customtkinter as ctk
@@ -347,32 +350,46 @@ class AdminView(ctk.CTkFrame):
 
         key = models.get_key(self.conn, kid)
         default_name = f"key_report_{key['code']}_{_stamp()}.pdf"
-        config.ensure_dirs()
-        out = filedialog.asksaveasfilename(
-            parent=self,
-            title="PDF の保存先を選択",
-            defaultextension=".pdf",
-            filetypes=[("PDF ファイル", "*.pdf")],
-            initialdir=str(config.EXPORTS_DIR),
-            initialfile=default_name,
-        )
-        if not out:  # キャンセル
+
+        # 1) 一時ファイルに生成し、既定ビューアでプレビュー表示
+        tmp = Path(tempfile.gettempdir()) / f"keylog_preview_{_stamp()}.pdf"
+        try:
+            reports.key_usage_pdf(self.conn, kid, tmp, start, end)
+        except Exception as e:
+            dialogs.error(self, f"PDF 生成に失敗: {e}")
             return
         try:
-            path = reports.key_usage_pdf(self.conn, kid, out, start, end)
-        except Exception as e:
-            dialogs.error(self, f"PDF 出力に失敗: {e}")
+            os.startfile(str(tmp))  # noqa: S606 (Windows プレビュー)
+        except Exception:
+            pass
+
+        # 2) プレビュー確認後に保存(既定はダウンロードフォルダ)
+        if not dialogs.confirm(self, "プレビューを表示しました。この内容で保存しますか？", title="PDF の保存"):
             return
-        self._offer_open(path)
+        dest = filedialog.asksaveasfilename(
+            parent=self,
+            title="PDF の保存先",
+            defaultextension=".pdf",
+            filetypes=[("PDF ファイル", "*.pdf")],
+            initialdir=self._default_export_dir(),
+            initialfile=default_name,
+        )
+        if not dest:  # キャンセル
+            return
+        try:
+            shutil.copyfile(tmp, dest)
+        except Exception as e:
+            dialogs.error(self, f"保存に失敗: {e}")
+            return
+        dialogs.info(self, f"保存しました:\n{dest}")
 
     def _export_csv(self) -> None:
-        config.ensure_dirs()
         out = filedialog.asksaveasfilename(
             parent=self,
             title="CSV の保存先を選択",
             defaultextension=".csv",
             filetypes=[("CSV ファイル", "*.csv")],
-            initialdir=str(config.EXPORTS_DIR),
+            initialdir=self._default_export_dir(),
             initialfile=f"checkouts_{_stamp()}.csv",
         )
         if not out:  # キャンセル
@@ -383,6 +400,11 @@ class AdminView(ctk.CTkFrame):
             dialogs.error(self, f"CSV 出力に失敗: {e}")
             return
         self._offer_open(path)
+
+    def _default_export_dir(self) -> str:
+        """エクスポートの既定保存先(ダウンロードフォルダ、無ければホーム)。"""
+        d = config.DOWNLOADS_DIR
+        return str(d if d.exists() else Path.home())
 
     def _offer_open(self, path) -> None:
         if dialogs.confirm(self, f"出力しました:\n{path}\n\n今すぐ開きますか？", title="出力完了"):
