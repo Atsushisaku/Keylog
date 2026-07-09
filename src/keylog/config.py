@@ -39,6 +39,19 @@ UI_QUEUE_DRAIN_MS = 150
 LOCK_PATH = DATA_DIR / "keylog.lock"
 
 
+def icon_path() -> Path | None:
+    """ウィンドウアイコン(.ico)のパスを返す(無ければ None)。
+
+    凍結(exe)時は PyInstaller の展開先(_MEIPASS)に同梱される。
+    """
+    if getattr(sys, "frozen", False):
+        base = Path(getattr(sys, "_MEIPASS", BASE_DIR))
+        p = base / "Keylog.ico"
+    else:
+        p = BASE_DIR / "assets" / "Keylog.ico"
+    return p if p.exists() else None
+
+
 def ensure_dirs() -> None:
     """データ・出力ディレクトリを用意する。"""
     DATA_DIR.mkdir(parents=True, exist_ok=True)

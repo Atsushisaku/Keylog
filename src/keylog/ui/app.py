@@ -32,6 +32,7 @@ class KeylogApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
         # テーマ読込(family を Roboto に戻す)後にフォントを上書きする
         self._apply_font_family()
+        self._apply_icon()
 
         self._card_capture = None  # 一時的に次のカードを横取りするコールバック
         self._reader_error_shown = False
@@ -49,6 +50,26 @@ class KeylogApp(ctk.CTk):
         self.after(UI_QUEUE_DRAIN_MS, self._drain_reader)
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    # ------------------------------------------------------------ アイコン
+    def _apply_icon(self) -> None:
+        """ウィンドウ(タイトルバー/タスクバー)のアイコンを設定する。
+
+        CustomTkinter は生成から ~200ms 後に既定アイコンを再設定するため、
+        直後に加えて少し遅延して再適用する。
+        """
+        p = config.icon_path()
+        if p is None:
+            return
+        path = str(p)
+        self._set_icon(path)
+        self.after(300, lambda: self._set_icon(path))
+
+    def _set_icon(self, path: str) -> None:
+        try:
+            self.iconbitmap(path)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------ フォント
     def _apply_font_family(self) -> None:

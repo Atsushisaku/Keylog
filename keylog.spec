@@ -15,6 +15,9 @@ for _pkg in ("customtkinter", "tkcalendar", "babel", "reportlab", "smartcard"):
     binaries += _b
     hiddenimports += _h
 
+# ウィンドウアイコンを実行時に読むため同梱(_MEIPASS 直下に展開される)
+datas += [("assets/Keylog.ico", ".")]
+
 a = Analysis(
     ["run.py"],
     pathex=["src"],
